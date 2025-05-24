@@ -11,7 +11,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions & options)
 : Node("arm_trajectory", options)
 {
   publisher_ = this->create_publisher<trajectory_msgs::msg::JointTrajectory>(
-    "/arm_move/arm_trajectory", 10);
+    "/joint_trajectory_position_controller/joint_trajectory", 10); //joint_trajectory_position_controllerに送る
   subscriber_ = this->create_subscription<std_msgs::msg::Float64>(// TODO:本来アクションにしてそのアクション内でpub --onceするようにする
     "/arm_move/goal_radius", 10,std::bind(&ArmTrajectory::handle_goal, this, std::placeholders::_1));
   declare_parameter("joint_left_name", "joint_left");
@@ -50,7 +50,6 @@ void ArmTrajectory::timer_callback()
   traj_msg.points.push_back(point);
 
   publisher_->publish(traj_msg);
-  RCLCPP_INFO(this->get_logger(), "Published trajectory point");
 }
 
 void ArmTrajectory::handle_goal(
