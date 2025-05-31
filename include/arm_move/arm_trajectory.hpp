@@ -5,6 +5,9 @@
 #include "trajectory_msgs/msg/joint_trajectory.hpp"
 #include "trajectory_msgs/msg/joint_trajectory_point.hpp"
 #include "std_msgs/msg/float64.hpp"
+#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/quaternion.hpp"
 
 namespace arm_move
 {
@@ -18,7 +21,7 @@ private:
   void timer_callback();
 
   rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr publisher_;
-  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr subscriber_; // TODO:本来ゴーをもらう型にする
+  rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr subscriber_; // TODO:本来ゴーをもらう型にする
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Time start_time_;
   std::string joint_left_name_;
@@ -27,9 +30,13 @@ private:
   double l1;
   double l2;
   double l3;
+  double ref_yaw_;
+  double ref_pitch_;
   double ref_theta_;
-  void handle_goal(const std_msgs::msg::Float64::SharedPtr msg); // 仮で半径のみできるか確かめる
-  double solveTheta1(double L1, double L2, double L3, double r);
+  
+
+  void handle_goal(const geometry_msgs::msg::Pose::SharedPtr msg); // 仮で半径のみできるか確かめる
+  double solve_theta(double L1, double L2, double L3, double r);
 };
 
 }  // namespace my_trajectory_sender

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <math.h>
+#include <vector>
 
 using namespace std::chrono_literals;
 using arm_move::ArmTrajectory;
@@ -12,7 +13,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions & options)
 {
   publisher_ = this->create_publisher<trajectory_msgs::msg::JointTrajectory>(
     "/joint_trajectory_position_controller/joint_trajectory", 10); //joint_trajectory_position_controllerに送る
-  subscriber_ = this->create_subscription<std_msgs::msg::Float64>(// TODO:本来アクションにしてそのアクション内でpub --onceするようにする
+   subscriber_= this->create_subscription<geometry_msgs::msg::Pose>(// TODO:本来アクションにしてそのアクション内でpub --onceするようにする
     "/arm_move/goal_radius", 10,std::bind(&ArmTrajectory::handle_goal, this, std::placeholders::_1));
   declare_parameter("joint_left_name", "joint_left");
   declare_parameter("joint_right_name", "joint_right");
@@ -38,13 +39,14 @@ void ArmTrajectory::timer_callback()
 
   trajectory_msgs::msg::JointTrajectory traj_msg;
   traj_msg.joint_names = {
-    joint_left_name_, joint_right_name_ // TODO: ピッチのジョイント名も追加する
+    joint_left_name_, joint_right_name_, joint_pitch_name_ // TODO: ピッチのジョイント名も追加する
   };
 
   trajectory_msgs::msg::JointTrajectoryPoint point;
   point.positions = {
     ref_theta_,
-    -ref_theta_
+    -ref_theta_,
+    ref_pitch_
   };
   point.time_from_start = rclcpp::Duration::from_seconds(1.0);
   traj_msg.points.push_back(point);
@@ -53,13 +55,17 @@ void ArmTrajectory::timer_callback()
 }
 
 void ArmTrajectory::handle_goal(
-  const std_msgs::msg::Float64::SharedPtr msg) // TODO:仮で半径のみできるか確かめる
+  const geometry_msgs::msg::Pose::SharedPtr msg) // TODO:仮で半径のみできるか確かめる
 {
-  double radius = msg->data;
-  ref_theta_ = radius; // TODO:仮の処理、実際には何かしらの計算を行うべき
+  geometry_msgs::msg::Point ref_position = msg->position;
+  geometry_msgs::msg::Quaternion ref_orientation = msg->orientation;
+  double dx = ref_position.x;
+  double dy = ref_position.y;
+  double ref_radius = std::hypot(dx, dy);
+  ref_theta_ = solve_theta(l1,l2,l3,ref_radius);
 }
 
-double ArmTrajectory::solveTheta1(double L1, double L2, double L3, double r)
+double ArmTrajectory::solve_theta(double L1, double L2, double L3, double r)
 {
     // --- 入力チェック ---
     if (L1 <= 0.0 || L2 <= 0.0 || L3 <= 0.0 || r <= 0.0)
