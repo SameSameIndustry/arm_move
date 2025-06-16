@@ -15,18 +15,15 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions & options)
     "/joint_trajectory_position_controller/joint_trajectory", 10); //joint_trajectory_position_controllerに送る
    subscriber_= this->create_subscription<geometry_msgs::msg::Pose>(// TODO:本来アクションにしてそのアクション内でpub --onceするようにする
     "/arm_move/goal_radius", 10,std::bind(&ArmTrajectory::handle_goal, this, std::placeholders::_1));
-  declare_parameter("joint_left_name", "joint_left");
-  declare_parameter("joint_right_name", "joint_right");
-  declare_parameter("joint_pitch_name", "joint_pitch");
+  declare_parameter("joint_names", std::vector<std::string>{});
   declare_parameter("l1", 0.5);
   declare_parameter("l2", 0.5);
   declare_parameter("l3", 0.5);
-  joint_left_name_ = get_parameter("joint_left_name").as_string();
-  joint_right_name_ = get_parameter("joint_right_name").as_string();
-  joint_pitch_name_ = get_parameter("joint_pitch_name").as_string();
+  joint_names_ = get_parameter("joint_names").as_string_array();
   l1 = get_parameter("l1").as_double();
   l2 = get_parameter("l2").as_double();
   l3 = get_parameter("l3").as_double();
+  ref_theta_ = 0.0; // 初期値を設定
 
   timer_ = this->create_wall_timer(1s, std::bind(&ArmTrajectory::timer_callback, this));
   start_time_ = this->get_clock()->now();
@@ -38,15 +35,19 @@ void ArmTrajectory::timer_callback()
   double elapsed = (now - start_time_).seconds();
 
   trajectory_msgs::msg::JointTrajectory traj_msg;
-  traj_msg.joint_names = {
-    joint_left_name_, joint_right_name_, joint_pitch_name_ // TODO: ピッチのジョイント名も追加する
-  };
+  traj_msg.joint_names = joint_names_;
 
   trajectory_msgs::msg::JointTrajectoryPoint point;
   point.positions = {
     ref_theta_,
     -ref_theta_,
-    ref_pitch_
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
   };
   point.time_from_start = rclcpp::Duration::from_seconds(1.0);
   traj_msg.points.push_back(point);
@@ -55,7 +56,7 @@ void ArmTrajectory::timer_callback()
 }
 
 void ArmTrajectory::handle_goal(
-  const geometry_msgs::msg::Pose::SharedPtr msg) // TODO:仮で半径のみできるか確かめる
+  const geometry_msgs::msg::Pose::SharedPtr msg)
 {
   geometry_msgs::msg::Point ref_position = msg->position;
   geometry_msgs::msg::Quaternion ref_orientation = msg->orientation;

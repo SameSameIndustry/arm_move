@@ -24,9 +24,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr subscriber_; // TODO:本来ゴーをもらう型にする
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Time start_time_;
-  std::string joint_left_name_;
-  std::string joint_right_name_;
-  std::string joint_pitch_name_;
+  std::vector<std::string> joint_names_;
   double l1;
   double l2;
   double l3;
