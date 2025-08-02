@@ -31,7 +31,6 @@ private:
   double ref_yaw_;
   double ref_pitch_;
   double ref_theta_;
-  
 
   void handle_goal(const geometry_msgs::msg::Pose::SharedPtr msg); // 仮で半径のみできるか確かめる
   double solve_theta(double L1, double L2, double L3, double r);
