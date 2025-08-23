@@ -8,6 +8,7 @@
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
+#include "std_msgs/msg/empty.hpp"
 
 namespace arm_move
 {
@@ -20,8 +21,10 @@ public:
 private:
   void timer_callback();
 
-  rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr publisher_;
-  rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr subscriber_; // TODO:本来ゴーをもらう型にする
+  rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr turn_table_position_pub_;
+  rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr goal_pose_subscriber_; // TODO:本来ゴーをもらう型にする
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr start_motion_subscriber_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr init_motion_subscriber_;
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Time start_time_;
   std::vector<std::string> joint_names_;
@@ -32,7 +35,16 @@ private:
   double ref_pitch_;
   double ref_theta_;
 
-  void handle_goal(const geometry_msgs::msg::Pose::SharedPtr msg); // 仮で半径のみできるか確かめる
+  double start_theta_;
+  double start_pitch_;
+  double start_yaw_;
+  double reset_theta_;
+  double reset_pitch_;
+  double reset_yaw_;
+
+  void handle_goal(const geometry_msgs::msg::Pose::SharedPtr msg);
+  void handle_start_motion(const std_msgs::msg::Empty::SharedPtr msg);
+  void handle_reset_motion(const std_msgs::msg::Empty::SharedPtr msg);
   double solve_theta(double L1, double L2, double L3, double r);
 };
 
