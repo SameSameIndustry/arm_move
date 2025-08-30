@@ -13,13 +13,16 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
 {
   turn_table_position_pub_ = this->create_publisher<trajectory_msgs::msg::JointTrajectory>(
       "/turn_table_position_controller/joint_trajectory", 10);       // turn_table_position_controllerに送る
+  hand_position_pub_ = this->create_publisher<trajectory_msgs::msg::JointTrajectory>(
+      "/hand_position_controller/joint_trajectory", 10);                       // hand_position_controllerに送る
   goal_pose_subscriber_ = this->create_subscription<geometry_msgs::msg::Pose>( // TODO:本来アクションにしてそのアクション内でpub --onceするようにする
       "/arm_move/goal_pose", 10, std::bind(&ArmTrajectory::handle_goal, this, std::placeholders::_1));
   start_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/start_motion", 10, std::bind(&ArmTrajectory::handle_start_motion, this, std::placeholders::_1));
   init_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/reset_motion", 10, std::bind(&ArmTrajectory::handle_reset_motion, this, std::placeholders::_1));
-  declare_parameter("joint_names", std::vector<std::string>{});
+  declare_parameter("turn_table_position_controller_joint_names", std::vector<std::string>{});
+  declare_parameter("hand_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("l1", 0.5);
   declare_parameter("l2", 0.5);
   declare_parameter("l3", 0.5);
@@ -31,7 +34,8 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   declare_parameter("reset_pitch", 0.0);
   declare_parameter("reset_yaw", 0.0);
 
-  joint_names_ = get_parameter("joint_names").as_string_array();
+  turn_table_position_controller_joint_names = get_parameter("turn_table_position_controller_joint_names").as_string_array();
+  hand_position_controller_joint_names = get_parameter("hand_position_controller_joint_names").as_string_array();
   l1 = get_parameter("l1").as_double();
   l2 = get_parameter("l2").as_double();
   l3 = get_parameter("l3").as_double();
@@ -52,21 +56,30 @@ void ArmTrajectory::timer_callback()
   auto now = this->get_clock()->now();
   double elapsed = (now - start_time_).seconds();
 
-  trajectory_msgs::msg::JointTrajectory traj_msg;
-  traj_msg.joint_names = joint_names_;
+  trajectory_msgs::msg::JointTrajectory turn_table_traj_msg;
+  trajectory_msgs::msg::JointTrajectory hand_traj_msg;
+  turn_table_traj_msg.joint_names = turn_table_position_controller_joint_names;
+  hand_traj_msg.joint_names = hand_position_controller_joint_names;
 
-  trajectory_msgs::msg::JointTrajectoryPoint point;
-  point.positions = {
-      ref_theta_, // TODO 向きを確認する
-      -ref_theta_,
+  trajectory_msgs::msg::JointTrajectoryPoint turn_table_point;
+  trajectory_msgs::msg::JointTrajectoryPoint hand_point;
+  turn_table_point.positions = {
       ref_pitch_,
       -ref_pitch_,
       ref_yaw_,
   };
-  point.time_from_start = rclcpp::Duration::from_seconds(1.0);
-  traj_msg.points.push_back(point);
+  hand_point.positions = {
+      ref_theta_,
+      -ref_theta_
+  };
 
-  turn_table_position_pub_->publish(traj_msg);
+  turn_table_point.time_from_start = rclcpp::Duration::from_seconds(1.0);
+  hand_point.time_from_start = rclcpp::Duration::from_seconds(1.0);
+  turn_table_traj_msg.points.push_back(turn_table_point);
+  hand_traj_msg.points.push_back(hand_point);
+
+  turn_table_position_pub_->publish(turn_table_traj_msg);
+  hand_position_pub_->publish(hand_traj_msg);
 }
 
 void ArmTrajectory::handle_goal(

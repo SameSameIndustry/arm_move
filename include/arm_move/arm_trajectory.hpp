@@ -22,12 +22,14 @@ private:
   void timer_callback();
 
   rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr turn_table_position_pub_;
+  rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr hand_position_pub_;
   rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr goal_pose_subscriber_; // TODO:本来ゴーをもらう型にする
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr start_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr init_motion_subscriber_;
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Time start_time_;
-  std::vector<std::string> joint_names_;
+  std::vector<std::string> hand_position_controller_joint_names;
+  std::vector<std::string> turn_table_position_controller_joint_names;
   double l1;
   double l2;
   double l3;
