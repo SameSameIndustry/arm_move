@@ -8,6 +8,7 @@
 using namespace std::chrono_literals;
 using arm_move::ArmTrajectory;
 
+// TODO いろんなMotionを追加していくその時の角度はすべての関節の角度を指定するようにする
 ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
     : Node("arm_trajectory", options)
 {
@@ -15,36 +16,64 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
       "/turn_table_position_controller/joint_trajectory", 10);       // turn_table_position_controllerに送る
   hand_position_pub_ = this->create_publisher<trajectory_msgs::msg::JointTrajectory>(
       "/hand_position_controller/joint_trajectory", 10);                       // hand_position_controllerに送る
+  hand_yaw_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+      "/hand_yaw_controller/commands", 10);
+  hand_pitch_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+      "/hand_pitch_controller/commands", 10);
+  hand_gripper_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+      "/hand_gripper_controller/commands", 10);
+
   goal_pose_subscriber_ = this->create_subscription<geometry_msgs::msg::Pose>( // TODO:本来アクションにしてそのアクション内でpub --onceするようにする
       "/arm_move/goal_pose", 10, std::bind(&ArmTrajectory::handle_goal, this, std::placeholders::_1));
   start_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/start_motion", 10, std::bind(&ArmTrajectory::handle_start_motion, this, std::placeholders::_1));
   init_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/reset_motion", 10, std::bind(&ArmTrajectory::handle_reset_motion, this, std::placeholders::_1));
+  catch_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/catch_motion", 10, std::bind(&ArmTrajectory::handle_catch_motion, this, std::placeholders::_1));
+  set_catch_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/set_catch_motion", 10, std::bind(&ArmTrajectory::handle_set_catch_motion, this, std::placeholders::_1));
+  release_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/release_motion", 10, std::bind(&ArmTrajectory::handle_release_motion, this, std::placeholders::_1));
+  
   declare_parameter("turn_table_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_position_controller_joint_names", std::vector<std::string>{});
+  declare_parameter("hand_yaw_controller_joint_names", std::vector<std::string>{});
+  declare_parameter("hand_pitch_controller_joint_names", std::vector<std::string>{});
+  declare_parameter("hand_gripper_controller_joint_names", std::vector<std::string>{});
   declare_parameter("l1", 0.5);
   declare_parameter("l2", 0.5);
   declare_parameter("l3", 0.5);
   declare_parameter("start_theta", 0.0);
   declare_parameter("start_pitch", 0.0);
   declare_parameter("start_yaw", 0.0);
-
+  declare_parameter("start_hand_yaw", 0.0);
+  declare_parameter("start_hand_pitch", 0.0);
+  declare_parameter("gripper_opening", 0.0);
+  declare_parameter("gripper_closing", 1.57);
   declare_parameter("reset_theta", 0.0);
   declare_parameter("reset_pitch", 0.0);
   declare_parameter("reset_yaw", 0.0);
 
   turn_table_position_controller_joint_names = get_parameter("turn_table_position_controller_joint_names").as_string_array();
   hand_position_controller_joint_names = get_parameter("hand_position_controller_joint_names").as_string_array();
+  hand_yaw_controller_joint_names = get_parameter("hand_yaw_controller_joint_names").as_string_array();
+  hand_pitch_controller_joint_names = get_parameter("hand_pitch_controller_joint_names").as_string_array();
+  hand_gripper_controller_joint_names = get_parameter("hand_gripper_controller_joint_names").as_string_array();
+  
   l1 = get_parameter("l1").as_double();
   l2 = get_parameter("l2").as_double();
   l3 = get_parameter("l3").as_double();
   start_theta_ = get_parameter("start_theta").as_double();
   start_pitch_ = get_parameter("start_pitch").as_double();
   start_yaw_ = get_parameter("start_yaw").as_double();
+  start_hand_yaw_ = get_parameter("start_hand_yaw").as_double();
+  start_hand_pitch_ = get_parameter("start_hand_pitch").as_double();
   reset_theta_ = get_parameter("reset_theta").as_double();
   reset_pitch_ = get_parameter("reset_pitch").as_double();
   reset_yaw_ = get_parameter("reset_yaw").as_double();
+  gripper_opening_ = get_parameter("gripper_opening").as_double();
+  gripper_closing_ = get_parameter("gripper_closing").as_double();
   ref_theta_ = 0.0; // 初期値を設定
 
   timer_ = this->create_wall_timer(1s, std::bind(&ArmTrajectory::timer_callback, this)); // 本当はactionにする
@@ -72,6 +101,7 @@ void ArmTrajectory::timer_callback()
       ref_theta_,
       -ref_theta_
   };
+  
 
   turn_table_point.time_from_start = rclcpp::Duration::from_seconds(1.0);
   hand_point.time_from_start = rclcpp::Duration::from_seconds(1.0);
@@ -91,7 +121,7 @@ void ArmTrajectory::handle_goal(
   double dy = ref_position.y;
   double ref_radius = std::hypot(dx, dy);
   ref_theta_ = solve_theta(l1, l2, l3, ref_radius);
-  ref_pitch_ = std::atan2(ref_position.z, ref_radius);
+  ref_pitch_ = std::atan2(ref_position.z, ref_radius); //いらないかも
   ref_yaw_ = std::atan2(dy, dx);
 }
 
@@ -101,6 +131,9 @@ void ArmTrajectory::handle_start_motion(
   ref_theta_ = start_theta_;
   ref_pitch_ = start_pitch_;
   ref_yaw_ = start_yaw_;
+  ref_hand_yaw_ = 0.0;
+  ref_hand_pitch_ = 0.0;
+  ref_gripper_ = gripper_opening_;
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Start motion received");
 }
 
@@ -110,7 +143,33 @@ void ArmTrajectory::handle_reset_motion(
   ref_theta_ = reset_theta_;
   ref_pitch_ = reset_pitch_;
   ref_yaw_ = reset_yaw_;
+  ref_hand_yaw_ = 0.0;
+  ref_hand_pitch_ = 0.0;
+  ref_gripper_ = gripper_opening_;
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Init motion received");
+}
+
+void ArmTrajectory::handle_catch_motion(
+    const std_msgs::msg::Empty::SharedPtr msg)
+{
+  ref_gripper_ = gripper_closing_;
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Catch motion received");
+}
+
+void ArmTrajectory::handle_set_catch_motion(
+    const std_msgs::msg::Empty::SharedPtr msg)
+{
+  ref_hand_yaw_ = 0.0;
+  ref_hand_pitch_ = 1.57;
+  ref_gripper_ = 0.0;
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Set catch motion received");
+}
+
+void ArmTrajectory::handle_release_motion(
+    const std_msgs::msg::Empty::SharedPtr msg)
+{
+  ref_gripper_ = gripper_opening_;
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Release motion received");
 }
 
 double ArmTrajectory::solve_theta(double L1, double L2, double L3, double r)
