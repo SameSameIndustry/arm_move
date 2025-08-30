@@ -119,7 +119,7 @@ void ArmTrajectory::handle_goal(
   geometry_msgs::msg::Quaternion ref_orientation = msg->orientation;
   double dx = ref_position.x;
   double dy = ref_position.y;
-  double ref_radius = std::hypot(dx, dy);
+  double ref_radius = std::hypot(dx, dy); // cos(ref_pitch_)が必要かも
   ref_theta_ = solve_theta(l1, l2, l3, ref_radius);
   ref_pitch_ = std::atan2(ref_position.z, ref_radius); //いらないかも
   ref_yaw_ = std::atan2(dy, dx);
