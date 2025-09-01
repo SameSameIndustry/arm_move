@@ -75,6 +75,12 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   gripper_opening_ = get_parameter("gripper_opening").as_double();
   gripper_closing_ = get_parameter("gripper_closing").as_double();
   ref_theta_ = 0.0; // 初期値を設定
+  ref_pitch_ = 0.0;
+  ref_yaw_ = 0.0;
+  ref_hand_yaw_ = 0.0;
+  ref_hand_pitch_ = 0.0;
+  ref_gripper_ = gripper_opening_;
+
 
   timer_ = this->create_wall_timer(1s, std::bind(&ArmTrajectory::timer_callback, this)); // 本当はactionにする
   start_time_ = this->get_clock()->now();
@@ -95,10 +101,26 @@ void ArmTrajectory::timer_callback()
   turn_table_pid_msg.values = {ref_pitch_, -ref_pitch_, ref_yaw_};
   // turn_table_pid_msg.values_dot = {0,0,0};
 
+  // ハンドの先端のピッチ
+  std_msgs::msg::Float64MultiArray hand_pitch_msg;
+  hand_pitch_msg.data = {ref_hand_pitch_};
+
+  // ハンドの先端のヨー
+  std_msgs::msg::Float64MultiArray hand_yaw_msg;
+  hand_yaw_msg.data = {ref_hand_yaw_};
+
+  // ハンドのグリッパー
+  std_msgs::msg::Float64MultiArray hand_gripper_msg;
+  hand_gripper_msg.data = {ref_gripper_};
+
   turn_table_position_pub_->publish(turn_table_pid_msg);
   hand_position_pub_->publish(hand_position_msg);
+  hand_pitch_pub_->publish(hand_pitch_msg);
+  hand_yaw_pub_->publish(hand_yaw_msg);
+  hand_gripper_pub_->publish(hand_gripper_msg);
 }
 
+//  TODO 要修正
 void ArmTrajectory::handle_goal(
     const geometry_msgs::msg::Pose::SharedPtr msg)
 {
