@@ -12,10 +12,10 @@ using arm_move::ArmTrajectory;
 ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
     : Node("arm_trajectory", options)
 {
-  turn_table_position_pub_ = this->create_publisher<trajectory_msgs::msg::JointTrajectory>(
-      "/turn_table_position_controller/joint_trajectory", 10);       // turn_table_position_controllerに送る
-  hand_position_pub_ = this->create_publisher<trajectory_msgs::msg::JointTrajectory>(
-      "/hand_position_controller/joint_trajectory", 10);                       // hand_position_controllerに送る
+  turn_table_position_pub_ = this->create_publisher<control_msgs::msg::MultiDOFCommand>(
+      "/turn_table_position_controller/reference", 10);       // turn_table_position_controllerに送る
+  hand_position_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+      "/hand_position_controller/commands", 10);                       // hand_position_controllerに送る
   hand_yaw_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
       "/hand_yaw_controller/commands", 10);
   hand_pitch_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
@@ -85,31 +85,18 @@ void ArmTrajectory::timer_callback()
   auto now = this->get_clock()->now();
   double elapsed = (now - start_time_).seconds();
 
-  trajectory_msgs::msg::JointTrajectory turn_table_traj_msg;
-  trajectory_msgs::msg::JointTrajectory hand_traj_msg;
-  turn_table_traj_msg.joint_names = turn_table_position_controller_joint_names;
-  hand_traj_msg.joint_names = hand_position_controller_joint_names;
+  // ハンドの位置に関連するものをPositionController使用する前提で送る(odrive用)
+  std_msgs::msg::Float64MultiArray hand_position_msg;
+  hand_position_msg.data = {ref_theta_, -ref_theta_}; // 左右の順番
 
-  trajectory_msgs::msg::JointTrajectoryPoint turn_table_point;
-  trajectory_msgs::msg::JointTrajectoryPoint hand_point;
-  turn_table_point.positions = {
-      ref_pitch_,
-      -ref_pitch_,
-      ref_yaw_,
-  };
-  hand_point.positions = {
-      ref_theta_,
-      -ref_theta_
-  };
-  
+  // ターンテーブルの位置に関連するものをPIDControllerを使用する前提で送る(robo)
+  control_msgs::msg::MultiDOFCommand turn_table_pid_msg;
+  turn_table_pid_msg.dof_names = turn_table_position_controller_joint_names;
+  turn_table_pid_msg.values = {ref_pitch_, -ref_pitch_, ref_yaw_};
+  // turn_table_pid_msg.values_dot = {0,0,0};
 
-  turn_table_point.time_from_start = rclcpp::Duration::from_seconds(1.0);
-  hand_point.time_from_start = rclcpp::Duration::from_seconds(1.0);
-  turn_table_traj_msg.points.push_back(turn_table_point);
-  hand_traj_msg.points.push_back(hand_point);
-
-  turn_table_position_pub_->publish(turn_table_traj_msg);
-  hand_position_pub_->publish(hand_traj_msg);
+  turn_table_position_pub_->publish(turn_table_pid_msg);
+  hand_position_pub_->publish(hand_position_msg);
 }
 
 void ArmTrajectory::handle_goal(

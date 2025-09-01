@@ -9,6 +9,7 @@
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
+#include "control_msgs/msg/multi_dof_command.hpp"
 #include "std_msgs/msg/empty.hpp"
 
 namespace arm_move
@@ -23,8 +24,8 @@ private:
   void timer_callback();
 
   // Publisher
-  rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr turn_table_position_pub_;
-  rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr hand_position_pub_;
+  rclcpp::Publisher<control_msgs::msg::MultiDOFCommand>::SharedPtr turn_table_position_pub_; // 全部ロボマス
+  rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_position_pub_; // 全部オードライブ
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_yaw_pub_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_pitch_pub_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_gripper_pub_;
