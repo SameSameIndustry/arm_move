@@ -44,16 +44,18 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   declare_parameter("l1", 0.5);
   declare_parameter("l2", 0.5);
   declare_parameter("l3", 0.5);
-  declare_parameter("start_theta", 0.0);
+  declare_parameter("start_theta", 1.57);
   declare_parameter("start_pitch", 0.0);
   declare_parameter("start_yaw", 0.0);
   declare_parameter("start_hand_yaw", 0.0);
   declare_parameter("start_hand_pitch", 0.0);
   declare_parameter("gripper_opening", 0.0);
   declare_parameter("gripper_closing", 1.57);
-  declare_parameter("reset_theta", 0.0);
+  declare_parameter("reset_theta", 0.785);
   declare_parameter("reset_pitch", 0.0);
   declare_parameter("reset_yaw", 0.0);
+  declare_parameter("initial_left_radial_angle", 1.57f);
+  declare_parameter("initial_right_radial_angle", 1.57f);
 
   turn_table_position_controller_joint_names = get_parameter("turn_table_position_controller_joint_names").as_string_array();
   hand_position_controller_joint_names = get_parameter("hand_position_controller_joint_names").as_string_array();
@@ -74,6 +76,9 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   reset_yaw_ = get_parameter("reset_yaw").as_double();
   gripper_opening_ = get_parameter("gripper_opening").as_double();
   gripper_closing_ = get_parameter("gripper_closing").as_double();
+  initial_left_radial_angle_ = get_parameter("initial_left_radial_angle").as_double();
+  initial_right_radial_angle_ = get_parameter("initial_right_radial_angle").as_double();
+
   ref_theta_ = 0.0; // 初期値を設定
   ref_pitch_ = 0.0;
   ref_yaw_ = 0.0;
@@ -93,7 +98,7 @@ void ArmTrajectory::timer_callback()
 
   // ハンドの位置に関連するものをPositionController使用する前提で送る(odrive用)
   std_msgs::msg::Float64MultiArray hand_position_msg;
-  hand_position_msg.data = {ref_theta_, -ref_theta_}; // 左右の順番
+  hand_position_msg.data = {ref_theta_ - initial_left_radial_angle_, -(ref_theta_ - initial_right_radial_angle_)}; // 左右の順番(初期の角度でいい感じにする)
 
   // ターンテーブルの位置に関連するものをPIDControllerを使用する前提で送る(robo)
   control_msgs::msg::MultiDOFCommand turn_table_pid_msg;

@@ -60,6 +60,8 @@ private:
   double gripper_closing_;
   double start_hand_yaw_;
   double start_hand_pitch_;
+  double initial_left_radial_angle_;
+  double initial_right_radial_angle_;
 
   double ref_yaw_;
   double ref_pitch_;
