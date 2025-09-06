@@ -62,6 +62,8 @@ private:
   double start_hand_pitch_;
   double initial_left_radial_angle_;
   double initial_right_radial_angle_;
+  double initial_left_pitch_angle_;
+  double initial_right_pitch_angle_;
 
   double ref_yaw_;
   double ref_pitch_;

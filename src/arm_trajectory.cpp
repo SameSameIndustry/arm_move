@@ -56,6 +56,8 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   declare_parameter("reset_yaw", 0.0);
   declare_parameter("initial_left_radial_angle", 1.57f);
   declare_parameter("initial_right_radial_angle", 1.57f);
+  declare_parameter("initial_left_pitch_angle", 0.051f);
+  declare_parameter("initial_right_pitch_angle", 0.051f);
 
   turn_table_position_controller_joint_names = get_parameter("turn_table_position_controller_joint_names").as_string_array();
   hand_position_controller_joint_names = get_parameter("hand_position_controller_joint_names").as_string_array();
@@ -78,6 +80,8 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   gripper_closing_ = get_parameter("gripper_closing").as_double();
   initial_left_radial_angle_ = get_parameter("initial_left_radial_angle").as_double();
   initial_right_radial_angle_ = get_parameter("initial_right_radial_angle").as_double();
+  initial_left_pitch_angle_ = get_parameter("initial_left_pitch_angle").as_double();
+  initial_right_pitch_angle_ = get_parameter("initial_right_pitch_angle").as_double();
 
   ref_theta_ = 0.0; // 初期値を設定
   ref_pitch_ = 0.0;
@@ -103,7 +107,7 @@ void ArmTrajectory::timer_callback()
   // ターンテーブルの位置に関連するものをPIDControllerを使用する前提で送る(robo)
   control_msgs::msg::MultiDOFCommand turn_table_pid_msg;
   turn_table_pid_msg.dof_names = turn_table_position_controller_joint_names;
-  turn_table_pid_msg.values = {ref_pitch_, -ref_pitch_, ref_yaw_};
+  turn_table_pid_msg.values = {ref_pitch_ - initial_left_pitch_angle_, -(ref_pitch_ - initial_right_pitch_angle_), ref_yaw_};
   // turn_table_pid_msg.values_dot = {0,0,0};
 
   // ハンドの先端のピッチ
