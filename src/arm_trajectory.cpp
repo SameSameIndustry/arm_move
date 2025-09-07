@@ -23,7 +23,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   hand_gripper_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
       "/hand_gripper_controller/commands", 10);
 
-  goal_pose_subscriber_ = this->create_subscription<geometry_msgs::msg::Pose>( // TODO:本来アクションにしてそのアクション内でpub --onceするようにする
+  goal_pose_subscriber_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
       "/arm_move/goal_pose", 10, std::bind(&ArmTrajectory::handle_goal, this, std::placeholders::_1));
   start_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/start_motion", 10, std::bind(&ArmTrajectory::handle_start_motion, this, std::placeholders::_1));
@@ -83,11 +83,11 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   initial_left_pitch_angle_ = get_parameter("initial_left_pitch_angle").as_double();
   initial_right_pitch_angle_ = get_parameter("initial_right_pitch_angle").as_double();
 
-  ref_theta_ = 0.0; // 初期値を設定
-  ref_pitch_ = 0.0;
-  ref_yaw_ = 0.0;
-  ref_hand_yaw_ = 0.0;
-  ref_hand_pitch_ = 0.0;
+  ref_theta_ = start_theta_;
+  ref_pitch_ = start_pitch_;
+  ref_yaw_ = start_yaw_;
+  ref_hand_yaw_ = start_hand_yaw_;
+  ref_hand_pitch_ = start_hand_pitch_;
   ref_gripper_ = gripper_opening_;
 
 
@@ -131,15 +131,16 @@ void ArmTrajectory::timer_callback()
 
 //  TODO 要修正
 void ArmTrajectory::handle_goal(
-    const geometry_msgs::msg::Pose::SharedPtr msg)
+    const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-  geometry_msgs::msg::Point ref_position = msg->position;
-  geometry_msgs::msg::Quaternion ref_orientation = msg->orientation;
+  geometry_msgs::msg::Point ref_position = msg->pose.position;
+  geometry_msgs::msg::Quaternion ref_orientation = msg->pose.orientation;
   double dx = ref_position.x;
   double dy = ref_position.y;
-  double ref_radius = std::hypot(dx, dy); // cos(ref_pitch_)が必要かも
+  double dz = ref_position.z;
+  double ref_radius = std::hypot(dx, dy, dz); // xy平面での距離->z^2もいるかも
   ref_theta_ = solve_theta(l1, l2, l3, ref_radius);
-  ref_pitch_ = std::atan2(ref_position.z, ref_radius); //いらないかも
+  ref_pitch_ = std::asin(dz / ref_radius);
   ref_yaw_ = std::atan2(dy, dx);
 }
 
@@ -192,26 +193,40 @@ void ArmTrajectory::handle_release_motion(
 
 double ArmTrajectory::solve_theta(double L1, double L2, double L3, double r)
 {
-  // --- 入力チェック ---
-  if (L1 <= 0.0 || L2 <= 0.0 || L3 <= 0.0 || r <= 0.0)
-    return std::numeric_limits<double>::quiet_NaN();
+    // --- 入力値のチェック ---
+    if (L1 <= 0.0 || L2 <= 0.0 || L3 <= 0.0 || r <= 0.0) {
+        // エラーログなどを出すとより親切
+        return std::numeric_limits<double>::quiet_NaN();
+    }
 
-  // --- 定数計算 ---
-  const double denom = std::sqrt(L1 * L1 + r * r);
-  const double K =
-      (L1 * L1 + r * r - L3 * L3 + L2 * L2) / (2.0 * L2);
+    // 1. モーター軸とアーム先端との直線距離を計算
+    const double dist_motor_to_end = std::hypot(L1/2, r);
 
-  // --- 定義域チェック ---
-  const double ratio = K / denom;
-  if (std::fabs(ratio) > 1.0)
-    return std::numeric_limits<double>::quiet_NaN(); // 作図不可能
+    // 2. 物理的に到達可能かチェック
+    // L2とL3を一直線に伸ばした距離より遠い、または折りたたんだ距離より近い場合は到達不可
+    if (dist_motor_to_end > L2 + L3 || dist_motor_to_end < std::abs(L2 - L3)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
 
-  // --- θ1 を計算 ---
-  const double theta =
-      std::asin(std::clamp(ratio, -1.0, 1.0)) - std::atan(L1 / r);
+    // 3. 余弦定理を用いて各角度を計算
+    
+    // モーター軸、アーム先端、中間関節でなす三角形を考える
+    // モーター軸の位置にある内角 (alpha)
+    const double cos_alpha = (L2 * L2 + dist_motor_to_end * dist_motor_to_end - L3 * L3) / (2.0 * L2 * dist_motor_to_end);
+    const double alpha = std::acos(std::clamp(cos_alpha, -1.0, 1.0));
 
-  // （必要なら 0〜2π に正規化するなど適宜処理）
-  return theta; // rad
+    // ヨー軸中心、モーター軸、アーム先端でなす直角三角形を考える
+    // ヨー軸中心の位置にある内角 (beta)
+    const double beta = std::atan2(L1/2, r);
+
+    // 4. 2つの解（エルボアップ/ダウン）を計算
+    // モーターの回転方向やリンクの組み方によって、+alpha と -alpha のどちらを採用するかが決まる
+    const double theta_elbow_up = beta - alpha;   // 解1
+    const double theta_elbow_down = beta + alpha; // 解2
+
+    // ここでは片方の解（エルボアップ）を返すことにする
+    // 必要に応じて、どちらの解が適切かを選択するロジックを追加してください
+    return theta_elbow_up;
 }
 
 #include "rclcpp_components/register_node_macro.hpp"

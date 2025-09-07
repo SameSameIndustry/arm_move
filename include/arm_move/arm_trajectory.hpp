@@ -6,7 +6,7 @@
 #include "trajectory_msgs/msg/joint_trajectory_point.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
-#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "control_msgs/msg/multi_dof_command.hpp"
@@ -31,7 +31,7 @@ private:
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_gripper_pub_;
 
   // Subscriber
-  rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr goal_pose_subscriber_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr start_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr init_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr catch_motion_subscriber_;
@@ -72,7 +72,7 @@ private:
   double ref_hand_pitch_;
   double ref_gripper_;
 
-  void handle_goal(const geometry_msgs::msg::Pose::SharedPtr msg);
+  void handle_goal(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   // いろんなモーション
   void handle_start_motion(const std_msgs::msg::Empty::SharedPtr msg);
   void handle_reset_motion(const std_msgs::msg::Empty::SharedPtr msg);
