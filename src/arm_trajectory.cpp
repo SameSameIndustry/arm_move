@@ -23,6 +23,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   hand_gripper_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
       "/hand_gripper_controller/commands", 10);
 
+
   goal_pose_subscriber_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
       "/arm_move/goal_pose", 10, std::bind(&ArmTrajectory::handle_goal, this, std::placeholders::_1));
   start_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
@@ -35,6 +36,10 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
       "/arm_move/set_catch_motion", 10, std::bind(&ArmTrajectory::handle_set_catch_motion, this, std::placeholders::_1));
   release_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/release_motion", 10, std::bind(&ArmTrajectory::handle_release_motion, this, std::placeholders::_1));
+    handle_up_hand_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/up_hand_motion", 10, std::bind(&ArmTrajectory::handle_up_hand_motion, this, std::placeholders::_1));
+    handle_down_hand_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/down_hand_motion", 10, std::bind(&ArmTrajectory::handle_down_hand_motion, this, std::placeholders::_1));
   
   declare_parameter("turn_table_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_position_controller_joint_names", std::vector<std::string>{});
@@ -56,9 +61,9 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   declare_parameter("reset_yaw", 0.0);
   declare_parameter("initial_left_radial_angle", 1.57f);
   declare_parameter("initial_right_radial_angle", 1.57f);
-  declare_parameter("initial_left_pitch_angle", 0.051f);
-  declare_parameter("initial_right_pitch_angle", 0.051f);
-
+  declare_parameter("down_arm_pitch", 0.18f);
+  declare_parameter("up_arm_pitch", 0.36f);
+  
   turn_table_position_controller_joint_names = get_parameter("turn_table_position_controller_joint_names").as_string_array();
   hand_position_controller_joint_names = get_parameter("hand_position_controller_joint_names").as_string_array();
   hand_yaw_controller_joint_names = get_parameter("hand_yaw_controller_joint_names").as_string_array();
@@ -80,8 +85,8 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   gripper_closing_ = get_parameter("gripper_closing").as_double();
   initial_left_radial_angle_ = get_parameter("initial_left_radial_angle").as_double();
   initial_right_radial_angle_ = get_parameter("initial_right_radial_angle").as_double();
-  initial_left_pitch_angle_ = get_parameter("initial_left_pitch_angle").as_double();
-  initial_right_pitch_angle_ = get_parameter("initial_right_pitch_angle").as_double();
+  down_arm_pitch_ = get_parameter("down_arm_pitch").as_double();
+  up_arm_pitch_ = get_parameter("up_arm_pitch").as_double();
 
   ref_theta_ = start_theta_;
   ref_pitch_ = start_pitch_;
@@ -107,7 +112,7 @@ void ArmTrajectory::timer_callback()
   // ターンテーブルの位置に関連するものをPIDControllerを使用する前提で送る(robo)
   control_msgs::msg::MultiDOFCommand turn_table_pid_msg;
   turn_table_pid_msg.dof_names = turn_table_position_controller_joint_names;
-  turn_table_pid_msg.values = {ref_pitch_ - initial_left_pitch_angle_, -(ref_pitch_ - initial_right_pitch_angle_), ref_yaw_};
+  turn_table_pid_msg.values = {ref_pitch_, ref_pitch_, -ref_yaw_};
   // turn_table_pid_msg.values_dot = {0,0,0};
 
   // ハンドの先端のピッチ
@@ -166,6 +171,19 @@ void ArmTrajectory::handle_reset_motion(
   ref_hand_pitch_ = 0.0;
   ref_gripper_ = gripper_opening_;
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Init motion received");
+}
+
+void ArmTrajectory::handle_up_hand_motion(
+    const std_msgs::msg::Empty::SharedPtr msg)
+{
+  ref_pitch_ = up_arm_pitch_;
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Up hand motion received");
+}
+void ArmTrajectory::handle_down_hand_motion(
+    const std_msgs::msg::Empty::SharedPtr msg)
+{
+  ref_pitch_ = down_arm_pitch_;
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Down hand motion received");
 }
 
 void ArmTrajectory::handle_catch_motion(
