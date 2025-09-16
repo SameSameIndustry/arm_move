@@ -36,11 +36,11 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
       "/arm_move/set_catch_motion", 10, std::bind(&ArmTrajectory::handle_set_catch_motion, this, std::placeholders::_1));
   release_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/release_motion", 10, std::bind(&ArmTrajectory::handle_release_motion, this, std::placeholders::_1));
-    handle_up_hand_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
-      "/arm_move/up_hand_motion", 10, std::bind(&ArmTrajectory::handle_up_hand_motion, this, std::placeholders::_1));
-    handle_down_hand_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
-      "/arm_move/down_hand_motion", 10, std::bind(&ArmTrajectory::handle_down_hand_motion, this, std::placeholders::_1));
-  
+    handle_up_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/up_motion", 10, std::bind(&ArmTrajectory::handle_up_motion, this, std::placeholders::_1));
+    handle_down_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/down_motion", 10, std::bind(&ArmTrajectory::handle_down_motion, this, std::placeholders::_1));
+
   declare_parameter("turn_table_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_yaw_controller_joint_names", std::vector<std::string>{});
@@ -146,7 +146,7 @@ void ArmTrajectory::handle_goal(
   double ref_radius = std::hypot(dx, dy, dz); // xy平面での距離->z^2もいるかも
   ref_theta_ = solve_theta(l1, l2, l3, ref_radius);
   ref_pitch_ = std::asin(dz / ref_radius);
-  ref_yaw_ = std::atan2(dy, dx);
+  ref_yaw_ = std::atan2(dy, dx) - M_PI/ 2.0; // 90度ずらす
 }
 
 void ArmTrajectory::handle_start_motion(
@@ -173,13 +173,13 @@ void ArmTrajectory::handle_reset_motion(
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Init motion received");
 }
 
-void ArmTrajectory::handle_up_hand_motion(
+void ArmTrajectory::handle_up_motion(
     const std_msgs::msg::Empty::SharedPtr msg)
 {
   ref_pitch_ = up_arm_pitch_;
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Up hand motion received");
 }
-void ArmTrajectory::handle_down_hand_motion(
+void ArmTrajectory::handle_down_motion(
     const std_msgs::msg::Empty::SharedPtr msg)
 {
   ref_pitch_ = down_arm_pitch_;

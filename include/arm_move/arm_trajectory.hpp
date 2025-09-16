@@ -37,8 +37,8 @@ private:
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr catch_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr set_catch_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr release_motion_subscriber_;
-  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_up_hand_motion_subscriber_;
-  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_down_hand_motion_subscriber_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_up_motion_subscriber_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_down_motion_subscriber_;
 
   // Timer
   rclcpp::TimerBase::SharedPtr timer_;
@@ -82,8 +82,8 @@ private:
   void handle_catch_motion(const std_msgs::msg::Empty::SharedPtr msg);
   void handle_set_catch_motion(const std_msgs::msg::Empty::SharedPtr msg);
   void handle_release_motion(const std_msgs::msg::Empty::SharedPtr msg);
-  void handle_up_hand_motion(const std_msgs::msg::Empty::SharedPtr msg);
-  void handle_down_hand_motion(const std_msgs::msg::Empty::SharedPtr msg);
+  void handle_up_motion(const std_msgs::msg::Empty::SharedPtr msg);
+  void handle_down_motion(const std_msgs::msg::Empty::SharedPtr msg);
 
   double solve_theta(double L1, double L2, double L3, double r);
 };
