@@ -112,7 +112,7 @@ void ArmTrajectory::timer_callback()
   // ターンテーブルの位置に関連するものをPIDControllerを使用する前提で送る(robo)
   control_msgs::msg::MultiDOFCommand turn_table_pid_msg;
   turn_table_pid_msg.dof_names = turn_table_position_controller_joint_names;
-  turn_table_pid_msg.values = {ref_pitch_, ref_pitch_, -ref_yaw_};
+  turn_table_pid_msg.values = {ref_pitch_, ref_pitch_, ref_yaw_};
   // turn_table_pid_msg.values_dot = {0,0,0};
 
   // ハンドの先端のピッチ
@@ -142,10 +142,11 @@ void ArmTrajectory::handle_goal(
   geometry_msgs::msg::Quaternion ref_orientation = msg->pose.orientation;
   double dx = ref_position.x;
   double dy = ref_position.y;
-  double dz = ref_position.z;
-  double ref_radius = std::hypot(dx, dy, dz); // xy平面での距離->z^2もいるかも
+  // double dz = ref_position.z;
+  double ref_radius = std::hypot(dx, dy); // xy平面での距離->z^2もいるかも
+  ref_radius = ref_radius / std::cos(down_arm_pitch_);
   ref_theta_ = solve_theta(l1, l2, l3, ref_radius);
-  ref_pitch_ = std::asin(dz / ref_radius);
+  // ref_pitch_ = std::asin(dz / ref_radius);
   ref_yaw_ = std::atan2(dy, dx) - M_PI/ 2.0; // 90度ずらす
 }
 
@@ -235,12 +236,19 @@ double ArmTrajectory::solve_theta(double L1, double L2, double L3, double r)
 
     // ヨー軸中心、モーター軸、アーム先端でなす直角三角形を考える
     // ヨー軸中心の位置にある内角 (beta)
-    const double beta = std::atan2(L1/2, r);
+    const double beta = std::atan2(r, L1/2);
 
     // 4. 2つの解（エルボアップ/ダウン）を計算
     // モーターの回転方向やリンクの組み方によって、+alpha と -alpha のどちらを採用するかが決まる
-    const double theta_elbow_up = beta - alpha;   // 解1
-    const double theta_elbow_down = beta + alpha; // 解2
+    double theta_elbow_up = beta + alpha;   // 解1
+
+    // -piからpiに正規化する
+    const double two_pi = 2.0 * M_PI;
+    if (theta_elbow_up > M_PI) {
+        theta_elbow_up -= two_pi;
+    } else if (theta_elbow_up < -M_PI) {
+        theta_elbow_up += two_pi;
+    }
 
     // ここでは片方の解（エルボアップ）を返すことにする
     // 必要に応じて、どちらの解が適切かを選択するロジックを追加してください
