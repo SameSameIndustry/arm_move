@@ -146,7 +146,12 @@ void ArmTrajectory::handle_goal(
   ref_radius = ref_radius / std::cos(down_arm_pitch_);
   ref_theta_ = solve_theta(l1, l2, l3, ref_radius);
   ref_pitch_ = up_arm_pitch_; // 目標ゴールを受けたら上腕を上げる
-  ref_yaw_ = std::atan2(dy, dx) - M_PI/ 2.0; // 90度ずらす
+  if(dx <0.0 && dy<0.0){
+    ref_yaw_ = std::atan2(dy, dx) + 2 * M_PI - M_PI/ 2.0;
+  }
+  else{
+    ref_yaw_ = std::atan2(dy, dx) - M_PI/ 2.0; // 90度ずらす
+  }
 }
 
 void ArmTrajectory::handle_start_motion(
