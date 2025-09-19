@@ -134,7 +134,6 @@ void ArmTrajectory::timer_callback()
   hand_gripper_pub_->publish(hand_gripper_msg);
 }
 
-//  TODO 要修正
 void ArmTrajectory::handle_goal(
     const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
@@ -146,7 +145,7 @@ void ArmTrajectory::handle_goal(
   double ref_radius = std::hypot(dx, dy); // xy平面での距離->z^2もいるかも
   ref_radius = ref_radius / std::cos(down_arm_pitch_);
   ref_theta_ = solve_theta(l1, l2, l3, ref_radius);
-  // ref_pitch_ = std::asin(dz / ref_radius);
+  ref_pitch_ = up_arm_pitch_; // 目標ゴールを受けたら上腕を上げる
   ref_yaw_ = std::atan2(dy, dx) - M_PI/ 2.0; // 90度ずらす
 }
 
@@ -162,6 +161,7 @@ void ArmTrajectory::handle_start_motion(
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Start motion received");
 }
 
+// 多分使わない
 void ArmTrajectory::handle_reset_motion(
     const std_msgs::msg::Empty::SharedPtr msg)
 {
@@ -215,6 +215,7 @@ double ArmTrajectory::solve_theta(double L1, double L2, double L3, double r)
     // --- 入力値のチェック ---
     if (L1 <= 0.0 || L2 <= 0.0 || L3 <= 0.0 || r <= 0.0) {
         // エラーログなどを出すとより親切
+        RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Invalid link lengths or radius");
         return std::numeric_limits<double>::quiet_NaN();
     }
 
@@ -224,6 +225,7 @@ double ArmTrajectory::solve_theta(double L1, double L2, double L3, double r)
     // 2. 物理的に到達可能かチェック
     // L2とL3を一直線に伸ばした距離より遠い、または折りたたんだ距離より近い場合は到達不可
     if (dist_motor_to_end > L2 + L3 || dist_motor_to_end < std::abs(L2 - L3)) {
+        RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Target radius is out of reach");
         return std::numeric_limits<double>::quiet_NaN();
     }
 
