@@ -44,6 +44,8 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
       "/arm_move/add_up_motion", 10, std::bind(&ArmTrajectory::handle_add_up_motion, this, std::placeholders::_1));
     handle_add_down_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/add_down_motion", 10, std::bind(&ArmTrajectory::handle_add_down_motion, this, std::placeholders::_1));
+    handle_middle_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/middle_motion", 10, std::bind(&ArmTrajectory::handle_middle_motion, this, std::placeholders::_1));
 
   declare_parameter("turn_table_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_position_controller_joint_names", std::vector<std::string>{});
@@ -67,6 +69,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   declare_parameter("initial_right_radial_angle", 1.57f);
   declare_parameter("down_arm_pitch", 0.18f);
   declare_parameter("up_arm_pitch", 0.36f);
+  declare_parameter("middle_arm_pitch", 0.28f);
   
   turn_table_position_controller_joint_names = get_parameter("turn_table_position_controller_joint_names").as_string_array();
   hand_position_controller_joint_names = get_parameter("hand_position_controller_joint_names").as_string_array();
@@ -91,6 +94,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   initial_right_radial_angle_ = get_parameter("initial_right_radial_angle").as_double();
   down_arm_pitch_ = get_parameter("down_arm_pitch").as_double();
   up_arm_pitch_ = get_parameter("up_arm_pitch").as_double();
+  middle_arm_pitch_ = get_parameter("middle_arm_pitch").as_double();
 
   ref_theta_ = start_theta_;
   ref_pitch_ = start_pitch_;
@@ -183,11 +187,18 @@ void ArmTrajectory::handle_add_up_motion(
 void ArmTrajectory::handle_add_down_motion(
   const std_msgs::msg::Empty::SharedPtr msg)
 {
-  if(ref_pitch_ <= 0.16){
-    ref_pitch_ = 0.16;
+  if(ref_pitch_ <= 0.1){
+    ref_pitch_ = 0.1;
     return;
   }
   ref_pitch_ -= 0.01;
+}
+
+void ArmTrajectory::handle_middle_motion(
+  const std_msgs::msg::Empty::SharedPtr msg)
+{
+  ref_pitch_ = middle_arm_pitch_;
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Middle motion received");
 }
 
 // スタートからの中間点を指示

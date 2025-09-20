@@ -41,6 +41,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_down_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_add_up_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_add_down_motion_subscriber_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_middle_motion_subscriber_;
 
   // Timer
   rclcpp::TimerBase::SharedPtr timer_;
@@ -68,6 +69,7 @@ private:
   double initial_right_radial_angle_;
   double up_arm_pitch_;
   double down_arm_pitch_;
+  double middle_arm_pitch_;
 
 
   double ref_yaw_;
@@ -89,6 +91,7 @@ private:
 
   void handle_add_down_motion(const std_msgs::msg::Empty::SharedPtr msg);
   void handle_add_up_motion(const std_msgs::msg::Empty::SharedPtr msg);
+  void handle_middle_motion(const std_msgs::msg::Empty::SharedPtr msg);
 
   double solve_theta(double L1, double L2, double L3, double r);
 };
