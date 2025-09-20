@@ -40,6 +40,10 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
       "/arm_move/up_motion", 10, std::bind(&ArmTrajectory::handle_up_motion, this, std::placeholders::_1));
     handle_down_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/down_motion", 10, std::bind(&ArmTrajectory::handle_down_motion, this, std::placeholders::_1));
+    handle_add_up_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/add_up_motion", 10, std::bind(&ArmTrajectory::handle_add_up_motion, this, std::placeholders::_1));
+    handle_add_down_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
+      "/arm_move/add_down_motion", 10, std::bind(&ArmTrajectory::handle_add_down_motion, this, std::placeholders::_1));
 
   declare_parameter("turn_table_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_position_controller_joint_names", std::vector<std::string>{});
@@ -166,7 +170,27 @@ void ArmTrajectory::handle_start_motion(
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Start motion received");
 }
 
-// 多分使わない
+void ArmTrajectory::handle_add_up_motion(
+  const std_msgs::msg::Empty::SharedPtr msg)
+{
+  if(ref_pitch_ >= 0.44){
+    ref_pitch_ = 0.44;
+    return;
+  }
+  ref_pitch_ += 0.01;
+
+}
+void ArmTrajectory::handle_add_down_motion(
+  const std_msgs::msg::Empty::SharedPtr msg)
+{
+  if(ref_pitch_ <= 0.16){
+    ref_pitch_ = 0.16;
+    return;
+  }
+  ref_pitch_ -= 0.01;
+}
+
+// スタートからの中間点を指示
 void ArmTrajectory::handle_reset_motion(
     const std_msgs::msg::Empty::SharedPtr msg)
 {
