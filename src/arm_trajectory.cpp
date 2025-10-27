@@ -47,6 +47,16 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
     handle_middle_motion_subscriber_ = this->create_subscription<std_msgs::msg::Empty>(
       "/arm_move/middle_motion", 10, std::bind(&ArmTrajectory::handle_middle_motion, this, std::placeholders::_1));
 
+  // ジョイコンからの入力を受け取る
+  ref_yaw_joy_r_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+      "/joycon_controller/ref_theta_r", 10, std::bind(&ArmTrajectory::handle_ref_theta_joy_r, this, std::placeholders::_1));
+  ref_yaw_joy_l_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+      "/joycon_controller/ref_theta_l", 10, std::bind(&ArmTrajectory::handle_ref_theta_joy_l, this, std::placeholders::_1));
+  ref_pitch_joy_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+      "/joycon_controller/ref_pitch", 10, std::bind(&ArmTrajectory::handle_ref_pitch_joy, this, std::placeholders::_1));
+  joy_rumble_pub_ = this->create_publisher<std_msgs::msg::Empty>(
+      "/joycon_controller/rumble", 10);
+
   declare_parameter("turn_table_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_yaw_controller_joint_names", std::vector<std::string>{});
@@ -70,6 +80,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   declare_parameter("down_arm_pitch", 0.18f);
   declare_parameter("up_arm_pitch", 0.36f);
   declare_parameter("middle_arm_pitch", 0.28f);
+  declare_parameter("is_independent_theta", false);
   
   turn_table_position_controller_joint_names = get_parameter("turn_table_position_controller_joint_names").as_string_array();
   hand_position_controller_joint_names = get_parameter("hand_position_controller_joint_names").as_string_array();
@@ -95,6 +106,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   down_arm_pitch_ = get_parameter("down_arm_pitch").as_double();
   up_arm_pitch_ = get_parameter("up_arm_pitch").as_double();
   middle_arm_pitch_ = get_parameter("middle_arm_pitch").as_double();
+  is_independent_theta_ = get_parameter("is_independent_theta").as_bool();
 
   ref_theta_ = start_theta_;
   ref_pitch_ = start_pitch_;
@@ -104,7 +116,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   ref_gripper_ = gripper_opening_;
 
 
-  timer_ = this->create_wall_timer(1s, std::bind(&ArmTrajectory::timer_callback, this)); // 本当はactionにする
+  timer_ = this->create_wall_timer(50ms, std::bind(&ArmTrajectory::timer_callback, this)); // 本当はactionにする
   start_time_ = this->get_clock()->now();
 }
 
@@ -113,10 +125,19 @@ void ArmTrajectory::timer_callback()
   auto now = this->get_clock()->now();
   double elapsed = (now - start_time_).seconds();
 
-  // ハンドの位置に関連するものをPositionController使用する前提で送る(odrive用)
   std_msgs::msg::Float64MultiArray hand_position_msg;
-  hand_position_msg.data = {ref_theta_ - initial_left_radial_angle_, -(ref_theta_ - initial_right_radial_angle_)}; // 左右の順番(初期の角度でいい感じにする)
-
+  if(is_independent_theta_){
+    if((ref_theta_r_ > M_PI/2.0 || ref_theta_r_ < -0.5) || (ref_theta_l_ < -M_PI/2.0 || ref_theta_l_ > 0.5)){
+      std_msgs::msg::Empty empty_msg;
+      joy_rumble_pub_->publish(empty_msg);
+    }
+    hand_position_msg.data = {ref_theta_l_ - initial_left_radial_angle_, ref_theta_r_ - initial_right_radial_angle_}; // 左右の順番(初期の角度でいい感じにする)
+  }
+  else{
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Using unified theta control");
+    // ハンドの位置に関連するものをPositionController使用する前提で送る(odrive用)
+    hand_position_msg.data = {ref_theta_ - initial_left_radial_angle_, -(ref_theta_ - initial_right_radial_angle_)}; // 左右の順番(初期の角度でいい感じにする)
+  }
   // ターンテーブルの位置に関連するものをPIDControllerを使用する前提で送る(robo)
   control_msgs::msg::MultiDOFCommand turn_table_pid_msg;
   turn_table_pid_msg.dof_names = turn_table_position_controller_joint_names;
@@ -248,6 +269,21 @@ void ArmTrajectory::handle_release_motion(
 {
   ref_gripper_ = gripper_opening_;
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Release motion received");
+}
+void ArmTrajectory::handle_ref_theta_joy_r(
+    const std_msgs::msg::Float64::SharedPtr msg)
+{
+  ref_theta_r_ = msg->data;
+}
+void ArmTrajectory::handle_ref_theta_joy_l(
+    const std_msgs::msg::Float64::SharedPtr msg)
+{
+  ref_theta_l_ = msg->data;
+}
+void ArmTrajectory::handle_ref_pitch_joy(
+    const std_msgs::msg::Float64::SharedPtr msg)
+{
+  ref_pitch_ = msg->data;
 }
 
 double ArmTrajectory::solve_theta(double L1, double L2, double L3, double r)

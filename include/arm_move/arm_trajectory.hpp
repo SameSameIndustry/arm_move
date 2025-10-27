@@ -29,6 +29,7 @@ private:
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_yaw_pub_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_pitch_pub_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_gripper_pub_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr joy_rumble_pub_;
 
   // Subscriber
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_subscriber_;
@@ -42,6 +43,10 @@ private:
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_add_up_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_add_down_motion_subscriber_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr handle_middle_motion_subscriber_;
+  // ジョイコンからの入力を受け取る
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_yaw_joy_r_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_yaw_joy_l_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_pitch_joy_sub_;
 
   // Timer
   rclcpp::TimerBase::SharedPtr timer_;
@@ -70,10 +75,16 @@ private:
   double up_arm_pitch_;
   double down_arm_pitch_;
   double middle_arm_pitch_;
+  bool is_independent_theta_;
 
 
   double ref_yaw_;
   double ref_pitch_;
+
+  // thetaを左右で分けるため
+  double ref_theta_l_;
+  double ref_theta_r_;
+
   double ref_theta_;
   double ref_hand_yaw_;
   double ref_hand_pitch_;
@@ -92,6 +103,11 @@ private:
   void handle_add_down_motion(const std_msgs::msg::Empty::SharedPtr msg);
   void handle_add_up_motion(const std_msgs::msg::Empty::SharedPtr msg);
   void handle_middle_motion(const std_msgs::msg::Empty::SharedPtr msg);
+
+  // ジョイコンからの入力を受け取る
+  void handle_ref_theta_joy_r(const std_msgs::msg::Float64::SharedPtr msg);
+  void handle_ref_theta_joy_l(const std_msgs::msg::Float64::SharedPtr msg);
+  void handle_ref_pitch_joy(const std_msgs::msg::Float64::SharedPtr msg);
 
   double solve_theta(double L1, double L2, double L3, double r);
 };
