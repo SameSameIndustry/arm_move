@@ -14,6 +14,8 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
 {
   turn_table_position_pub_ = this->create_publisher<control_msgs::msg::MultiDOFCommand>(
       "/turn_table_position_controller/reference", 10);       // turn_table_position_controllerに送る
+  turn_table_position_pub_ = this->create_publisher<control_msgs::msg::MultiDOFCommand>(
+      "/turn_table_pitch_velocity_controller/reference", 10);       // turn_table_pitch_velocity_controllerに送る
   hand_position_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
       "/hand_position_controller/commands", 10);                       // hand_position_controllerに送る
   hand_yaw_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
@@ -58,6 +60,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
       "/joycon_controller/rumble", 10);
 
   declare_parameter("turn_table_position_controller_joint_names", std::vector<std::string>{});
+  declare_parameter("turn_table_pitch_velocity_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_position_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_yaw_controller_joint_names", std::vector<std::string>{});
   declare_parameter("hand_pitch_controller_joint_names", std::vector<std::string>{});
@@ -83,6 +86,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   declare_parameter("is_independent_theta", false);
   
   turn_table_position_controller_joint_names = get_parameter("turn_table_position_controller_joint_names").as_string_array();
+  turn_table_pitch_velocity_controller_joint_names = get_parameter("turn_table_pitch_velocity_controller_joint_names").as_string_array();
   hand_position_controller_joint_names = get_parameter("hand_position_controller_joint_names").as_string_array();
   hand_yaw_controller_joint_names = get_parameter("hand_yaw_controller_joint_names").as_string_array();
   hand_pitch_controller_joint_names = get_parameter("hand_pitch_controller_joint_names").as_string_array();
@@ -141,9 +145,12 @@ void ArmTrajectory::timer_callback()
   // ターンテーブルの位置に関連するものをPIDControllerを使用する前提で送る(robo)
   control_msgs::msg::MultiDOFCommand turn_table_pid_msg;
   turn_table_pid_msg.dof_names = turn_table_position_controller_joint_names;
-  turn_table_pid_msg.values = {ref_pitch_, ref_pitch_, ref_yaw_};
-  // turn_table_pid_msg.values_dot = {0,0,0};
+  turn_table_pid_msg.values = {ref_yaw_};
 
+  control_msgs::msg::MultiDOFCommand turn_table_pitch_pid_msg;
+  turn_table_pitch_pid_msg.dof_names = turn_table_pitch_velocity_controller_joint_names;
+  turn_table_pitch_pid_msg.values = {ref_pitch_, ref_pitch_};
+  
   // ハンドの先端のピッチ
   std_msgs::msg::Float64MultiArray hand_pitch_msg;
   hand_pitch_msg.data = {ref_hand_pitch_};
@@ -157,6 +164,7 @@ void ArmTrajectory::timer_callback()
   hand_gripper_msg.data = {ref_gripper_};
 
   turn_table_position_pub_->publish(turn_table_pid_msg);
+  turn_table_pitch_velocity_pub_->publish(turn_table_pitch_pid_msg);
   hand_position_pub_->publish(hand_position_msg);
   hand_pitch_pub_->publish(hand_pitch_msg);
   hand_yaw_pub_->publish(hand_yaw_msg);

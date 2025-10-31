@@ -25,6 +25,7 @@ private:
 
   // Publisher
   rclcpp::Publisher<control_msgs::msg::MultiDOFCommand>::SharedPtr turn_table_position_pub_; // 全部ロボマス
+  rclcpp::Publisher<control_msgs::msg::MultiDOFCommand>::SharedPtr turn_table_pitch_velocity_pub_; // 全部ロボマス
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_position_pub_; // 全部オードライブ
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_yaw_pub_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr hand_pitch_pub_;
@@ -54,6 +55,7 @@ private:
   // パラメータから取得する変数
   std::vector<std::string> hand_position_controller_joint_names;
   std::vector<std::string> turn_table_position_controller_joint_names;
+  std::vector<std::string> turn_table_pitch_velocity_controller_joint_names;
   std::vector<std::string> hand_yaw_controller_joint_names;
   std::vector<std::string> hand_pitch_controller_joint_names;
   std::vector<std::string> hand_gripper_controller_joint_names; 
