@@ -14,7 +14,7 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
 {
   turn_table_position_pub_ = this->create_publisher<control_msgs::msg::MultiDOFCommand>(
       "/turn_table_position_controller/reference", 10);       // turn_table_position_controllerに送る
-  turn_table_position_pub_ = this->create_publisher<control_msgs::msg::MultiDOFCommand>(
+  turn_table_pitch_velocity_pub_ = this->create_publisher<control_msgs::msg::MultiDOFCommand>(
       "/turn_table_pitch_velocity_controller/reference", 10);       // turn_table_pitch_velocity_controllerに送る
   hand_position_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
       "/hand_position_controller/commands", 10);                       // hand_position_controllerに送る
@@ -149,6 +149,12 @@ void ArmTrajectory::timer_callback()
 
   control_msgs::msg::MultiDOFCommand turn_table_pitch_pid_msg;
   turn_table_pitch_pid_msg.dof_names = turn_table_pitch_velocity_controller_joint_names;
+  if(ref_pitch_ > up_arm_pitch_){
+    ref_pitch_ = up_arm_pitch_;
+  }
+  else if(ref_pitch_ < down_arm_pitch_){
+    ref_pitch_ = down_arm_pitch_;
+  }
   turn_table_pitch_pid_msg.values = {ref_pitch_, ref_pitch_};
   
   // ハンドの先端のピッチ
@@ -206,8 +212,8 @@ void ArmTrajectory::handle_start_motion(
 void ArmTrajectory::handle_add_up_motion(
   const std_msgs::msg::Empty::SharedPtr msg)
 {
-  if(ref_pitch_ >= 0.44){
-    ref_pitch_ = 0.44;
+  if(ref_pitch_ >= 0.38){
+    ref_pitch_ = 0.38;
     return;
   }
   ref_pitch_ += 0.01;
@@ -216,8 +222,8 @@ void ArmTrajectory::handle_add_up_motion(
 void ArmTrajectory::handle_add_down_motion(
   const std_msgs::msg::Empty::SharedPtr msg)
 {
-  if(ref_pitch_ <= 0.1){
-    ref_pitch_ = 0.1;
+  if(ref_pitch_ <= 0.25){
+    ref_pitch_ = 0.25;
     return;
   }
   ref_pitch_ -= 0.01;
