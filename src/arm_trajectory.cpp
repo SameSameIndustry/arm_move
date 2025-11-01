@@ -113,6 +113,8 @@ ArmTrajectory::ArmTrajectory(const rclcpp::NodeOptions &options)
   is_independent_theta_ = get_parameter("is_independent_theta").as_bool();
 
   ref_theta_ = start_theta_;
+  ref_theta_l_ = start_theta_;
+  ref_theta_r_ = start_theta_;
   ref_pitch_ = start_pitch_;
   ref_yaw_ = start_yaw_;
   ref_hand_yaw_ = start_hand_yaw_;
@@ -131,11 +133,12 @@ void ArmTrajectory::timer_callback()
 
   std_msgs::msg::Float64MultiArray hand_position_msg;
   if(is_independent_theta_){
-    if((ref_theta_r_ > M_PI/2.0 || ref_theta_r_ < -0.5) || (ref_theta_l_ < -M_PI/2.0 || ref_theta_l_ > 0.5)){
+    if((ref_theta_l_ - initial_left_radial_angle_ > M_PI/2.0 || ref_theta_l_ - initial_left_radial_angle_ < -0.5) ||
+    (-(ref_theta_r_ - initial_right_radial_angle_) < -M_PI/2.0 || -(ref_theta_r_ - initial_right_radial_angle_) > 0.5)){
       std_msgs::msg::Empty empty_msg;
       joy_rumble_pub_->publish(empty_msg);
     }
-    hand_position_msg.data = {ref_theta_l_ - initial_left_radial_angle_, ref_theta_r_ - initial_right_radial_angle_}; // 左右の順番(初期の角度でいい感じにする)
+    hand_position_msg.data = {ref_theta_l_ - initial_left_radial_angle_, -(ref_theta_r_ - initial_right_radial_angle_)}; // 左右の順番(初期の角度でいい感じにする)
   }
   else{
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Using unified theta control");
@@ -188,6 +191,8 @@ void ArmTrajectory::handle_goal(
   double ref_radius = std::hypot(dx, dy); // xy平面での距離->z^2もいるかも
   ref_radius = ref_radius / std::cos(down_arm_pitch_);
   ref_theta_ = solve_theta(l1, l2, l3, ref_radius);
+  ref_theta_l_ = ref_theta_;
+  ref_theta_r_ = ref_theta_;
   // ref_pitch_ = up_arm_pitch_; // 目標ゴールを受けたら上腕を上げる
   if(dx <0.0 && dy<0.0){
     ref_yaw_ = std::atan2(dy, dx) + 2 * M_PI - M_PI/ 2.0;
@@ -287,12 +292,12 @@ void ArmTrajectory::handle_release_motion(
 void ArmTrajectory::handle_ref_theta_joy_r(
     const std_msgs::msg::Float64::SharedPtr msg)
 {
-  ref_theta_r_ = msg->data;
+  ref_theta_r_ = msg->data + initial_right_radial_angle_;
 }
 void ArmTrajectory::handle_ref_theta_joy_l(
     const std_msgs::msg::Float64::SharedPtr msg)
 {
-  ref_theta_l_ = msg->data;
+  ref_theta_l_ = -msg->data + initial_left_radial_angle_;
 }
 void ArmTrajectory::handle_ref_pitch_joy(
     const std_msgs::msg::Float64::SharedPtr msg)
